@@ -1,4 +1,3 @@
-
 # ============================================================
 # model_loader.py
 # Loads, cleans, and prepares the movie recommendation model
@@ -19,7 +18,6 @@ from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 
-
 # ============================================================
 # Project Paths
 # ============================================================
@@ -35,7 +33,6 @@ KEYWORDS_PATH = DATA_DIR / "keywords.csv"
 # ============================================================
 # NLTK Resources
 # ============================================================
-
 
 
 def ensure_nltk_resource(resource_path, download_name):
@@ -65,9 +62,7 @@ def ensure_nltk_resource(resource_path, download_name):
     )
 
     if not success:
-        raise RuntimeError(
-            f"Could not download NLTK resource: {download_name}"
-        )
+        raise RuntimeError(f"Could not download NLTK resource: {download_name}")
 
     # Check again after downloading.
     for path in resource_paths:
@@ -77,9 +72,7 @@ def ensure_nltk_resource(resource_path, download_name):
         except LookupError:
             continue
 
-    raise RuntimeError(
-        f"NLTK resource is still unavailable: {download_name}"
-    )
+    raise RuntimeError(f"NLTK resource is still unavailable: {download_name}")
 
 
 ensure_nltk_resource("corpora/stopwords", "stopwords")
@@ -94,6 +87,7 @@ LEMMATIZER = WordNetLemmatizer()
 # Data Validation Helpers
 # ============================================================
 
+
 def read_csv_safely(file_path):
     """Read a CSV file and report a useful error if it fails."""
 
@@ -107,24 +101,17 @@ def read_csv_safely(file_path):
         return pd.read_csv(file_path, low_memory=True)
     except Exception as exc:
         raise RuntimeError(
-            f"Could not read dataset: {file_path.name}. "
-            f"Details: {exc}"
+            f"Could not read dataset: {file_path.name}. " f"Details: {exc}"
         ) from exc
 
 
 def validate_columns(dataframe, required_columns, filename):
     """Ensure a dataset contains the columns needed by the model."""
 
-    missing = [
-        column
-        for column in required_columns
-        if column not in dataframe.columns
-    ]
+    missing = [column for column in required_columns if column not in dataframe.columns]
 
     if missing:
-        raise ValueError(
-            f"{filename} is missing required columns: {missing}"
-        )
+        raise ValueError(f"{filename} is missing required columns: {missing}")
 
 
 def parse_list(value):
@@ -198,6 +185,7 @@ def extract_director(value):
 # Text Cleaning
 # ============================================================
 
+
 def clean_text(text):
     """Normalize text before TF-IDF vectorization."""
 
@@ -206,18 +194,14 @@ def clean_text(text):
 
     text = str(text).lower()
 
-    text = text.translate(
-        str.maketrans("", "", string.punctuation)
-    )
+    text = text.translate(str.maketrans("", "", string.punctuation))
 
     text = re.sub(r"\d+", "", text)
     text = re.sub(r"[^a-zA-Z\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
 
     words = [
-        LEMMATIZER.lemmatize(word)
-        for word in text.split()
-        if word not in STOP_WORDS
+        LEMMATIZER.lemmatize(word) for word in text.split() if word not in STOP_WORDS
     ]
 
     return " ".join(words)
@@ -226,6 +210,7 @@ def clean_text(text):
 # ============================================================
 # Load and Prepare Model
 # ============================================================
+
 
 def load_model():
 
@@ -237,16 +222,48 @@ def load_model():
     # 1. Load datasets
     # --------------------------------------------------------
 
-    movies = read_csv_safely(MOVIES_PATH)
-    credits = read_csv_safely(CREDITS_PATH)
-    keywords = read_csv_safely(KEYWORDS_PATH)
+    movies = pd.read_csv(
+        MOVIES_PATH,
+        usecols=[
+            "id",
+            "title",
+            "overview",
+            "genres",
+            "tagline",
+            "vote_average",
+            "vote_count",
+            "popularity",
+            "release_date",
+            "runtime",
+        ],
+        low_memory=True,
+    )
+
+    credits = pd.read_csv(
+        CREDITS_PATH,
+        usecols=["id", "cast", "crew"],
+        low_memory=True,
+    )
+
+    keywords = pd.read_csv(
+        KEYWORDS_PATH,
+        usecols=["id", "keywords"],
+        low_memory=True,
+    )
 
     validate_columns(
         movies,
         [
-            "id", "title", "overview", "genres", "tagline",
-            "vote_average", "vote_count", "popularity",
-            "release_date", "runtime",
+            "id",
+            "title",
+            "overview",
+            "genres",
+            "tagline",
+            "vote_average",
+            "vote_count",
+            "popularity",
+            "release_date",
+            "runtime",
         ],
         MOVIES_PATH.name,
     )
@@ -285,6 +302,9 @@ def load_model():
             inplace=True,
         )
 
+    print("Movies unique:", movies["id"].is_unique)
+    print("Credits unique:", credits["id"].is_unique)
+    print("Keywords unique:", keywords["id"].is_unique)
     # --------------------------------------------------------
     # 3. Merge datasets
     # --------------------------------------------------------
@@ -340,9 +360,7 @@ def load_model():
     movies.drop_duplicates(subset=["id"], keep="first", inplace=True)
 
     if movies.empty:
-        raise ValueError(
-            "No movies with valid titles were found in the datasets."
-        )
+        raise ValueError("No movies with valid titles were found in the datasets.")
 
     for column in ["overview", "tagline"]:
         movies[column] = movies[column].fillna("").astype(str)
@@ -363,11 +381,16 @@ def load_model():
     # --------------------------------------------------------
 
     movies["tag"] = (
-        movies["overview"] + " "
-        + movies["genres"] + " "
-        + movies["keywords"] + " "
-        + movies["cast"] + " "
-        + movies["crew"] + " "
+        movies["overview"]
+        + " "
+        + movies["genres"]
+        + " "
+        + movies["keywords"]
+        + " "
+        + movies["cast"]
+        + " "
+        + movies["crew"]
+        + " "
         + movies["tagline"]
     )
 
@@ -414,16 +437,12 @@ def load_model():
     final_df["tag"] = final_df["tag"].apply(clean_text)
 
     # Remove movies that have no usable descriptive text.
-    final_df = final_df[
-        final_df["tag"].str.strip().ne("")
-    ].copy()
+    final_df = final_df[final_df["tag"].str.strip().ne("")].copy()
 
     final_df.reset_index(drop=True, inplace=True)
 
     if final_df.empty:
-        raise ValueError(
-            "No movies have usable tags. Check your dataset contents."
-        )
+        raise ValueError("No movies have usable tags. Check your dataset contents.")
 
     print(f"Prepared {len(final_df):,} movies for recommendations.")
 
@@ -451,7 +470,6 @@ def load_model():
         tfidf_matrix = tfidf.fit_transform(final_df["tag"])
 
     except ValueError as exc:
-        # Small datasets may not satisfy min_df=2 or max_df=0.8.
         if "empty vocabulary" not in str(exc).lower() and (
             "no terms remain" not in str(exc).lower()
         ):
@@ -470,11 +488,16 @@ def load_model():
 
         tfidf_matrix = tfidf.fit_transform(final_df["tag"])
 
+    # Release text data only AFTER TF-IDF has been created.
+    
+    final_df.drop(columns=["tag"], inplace=True)
+
     print(
         f"TF-IDF matrix created: "
         f"{tfidf_matrix.shape[0]:,} movies, "
         f"{tfidf_matrix.shape[1]:,} features."
     )
+
 
     # --------------------------------------------------------
     # 10. Train nearest-neighbor model
@@ -499,18 +522,14 @@ def load_model():
     # 11. Create title lookup index
     # --------------------------------------------------------
 
-    final_df["title_lower"] = (
-        final_df["title"].str.strip().str.lower()
-    )
+    final_df["title_lower"] = final_df["title"].str.strip().str.lower()
 
     indices = pd.Series(
         final_df.index,
         index=final_df["title_lower"],
     )
 
-    indices = indices[
-        ~indices.index.duplicated(keep="first")
-    ]
+    indices = indices[~indices.index.duplicated(keep="first")]
 
     print("Movie title index created.")
 
