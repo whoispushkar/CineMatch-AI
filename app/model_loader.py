@@ -104,7 +104,7 @@ def read_csv_safely(file_path):
         )
 
     try:
-        return pd.read_csv(file_path, low_memory=False)
+        return pd.read_csv(file_path, low_memory=True)
     except Exception as exc:
         raise RuntimeError(
             f"Could not read dataset: {file_path.name}. "
@@ -434,7 +434,7 @@ def load_model():
     print("Creating TF-IDF feature matrix...")
 
     vectorizer_options = {
-        "max_features": 10000,
+        "max_features": 3000,
         "stop_words": "english",
         "ngram_range": (1, 2),
         "sublinear_tf": True,
